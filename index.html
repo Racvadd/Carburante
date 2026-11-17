@@ -1,0 +1,1476 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b1220" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Consumi">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.png">
+  <title>Monitoraggio Consumi</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    html, body { overscroll-behavior-y: none; }
+    body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+    main.main-pad { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
+    @media (min-width: 768px) { main.main-pad { padding-bottom: 2rem; } }
+
+    .top-safe { padding-top: env(safe-area-inset-top); }
+    .sheet-safe { padding-bottom: calc(1.25rem + env(safe-area-inset-bottom)); }
+    .sheet-in { animation: sheetIn .22s ease-out; }
+    @keyframes sheetIn { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .nav-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+    #toastHost { bottom: calc(5.25rem + env(safe-area-inset-bottom)); }
+    @media (min-width: 768px) { #toastHost { bottom: 2rem; } }
+    .toast-in { animation: toastIn .22s ease-out; }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+    .view-section { animation: fadeIn .18s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    @media (prefers-color-scheme: dark) {
+      :root { color-scheme: dark; }
+      body.bg-slate-100 { background-color: #0b1220 !important; color: #e2e8f0; }
+      ::-webkit-scrollbar-thumb { background: #334155; }
+      .bg-white { background-color: #111827 !important; }
+      .bg-slate-50, .bg-slate-100 { background-color: #1a2333 !important; }
+      .bg-slate-50\/50 { background-color: rgba(26,35,51,.5) !important; }
+      .bg-slate-200 { background-color: #374151 !important; }
+      .bg-slate-800 { background-color: #334155 !important; }
+      .border-slate-100, .border-slate-200 { border-color: #1f2a3d !important; }
+      .border-slate-300 { border-color: #334155 !important; }
+      .text-slate-900, .text-slate-800 { color: #f1f5f9 !important; }
+      .text-slate-700, .text-slate-600 { color: #cbd5e1 !important; }
+      .text-slate-500 { color: #94a3b8 !important; }
+      .text-slate-400 { color: #8392a8 !important; }
+      .shadow-sm, .shadow-md { box-shadow: none !important; }
+      input::placeholder { color: #64748b; }
+      .bg-emerald-50 { background-color: rgba(16,185,129,.16) !important; }
+      .bg-emerald-100 { background-color: rgba(16,185,129,.22) !important; }
+      .text-emerald-600, .text-emerald-700 { color: #34d399 !important; }
+      .border-emerald-400 { border-color: #10b981 !important; }
+      .bg-amber-50 { background-color: rgba(245,158,11,.14) !important; }
+      .bg-amber-100 { background-color: rgba(245,158,11,.22) !important; }
+      .text-amber-700, .text-amber-800 { color: #fbbf24 !important; }
+      .border-amber-200 { border-color: rgba(245,158,11,.35) !important; }
+      .bg-red-50 { background-color: rgba(239,68,68,.15) !important; }
+      .bg-red-100 { background-color: rgba(239,68,68,.22) !important; }
+      .text-red-600, .text-red-700 { color: #f87171 !important; }
+      .bg-blue-50 { background-color: rgba(59,130,246,.14) !important; }
+      .border-blue-100 { border-color: rgba(59,130,246,.3) !important; }
+      .text-blue-700 { color: #93c5fd !important; }
+      .text-blue-400 { color: #60a5fa !important; }
+      .hover\:bg-slate-50:hover { background-color: #1a2333 !important; }
+      .active\:bg-slate-50:active { background-color: #1a2333 !important; }
+    }
+
+    .field { font-size: 1.5rem; }
+    @media (min-width: 768px) { .field { font-size: 1.75rem; } }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased h-[100dvh] flex flex-col overflow-hidden">
+
+  <!-- TOP NAV (Solo Desktop) -->
+  <div class="hidden md:flex bg-white shadow-sm p-4 justify-center items-center space-x-4 z-10">
+    <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight mr-6">Gestione<span class="text-blue-600">Consumi</span></h1>
+    <button onclick="switchTab('inserisci')" id="nav-desktop-inserisci" class="nav-btn-desktop px-6 py-2.5 rounded-2xl font-bold text-lg text-slate-500 hover:bg-slate-50 transition-all">Inserisci</button>
+    <button onclick="switchTab('cruscotto')" id="nav-desktop-cruscotto" class="nav-btn-desktop px-6 py-2.5 rounded-2xl font-bold text-lg text-slate-500 hover:bg-slate-50 transition-all">Cruscotto</button>
+    <button onclick="switchTab('storico')" id="nav-desktop-storico" class="nav-btn-desktop px-6 py-2.5 rounded-2xl font-bold text-lg text-slate-500 hover:bg-slate-50 transition-all">Storico</button>
+    <button onclick="openConfigSheet()" aria-label="Impostazioni API" class="p-2.5 text-slate-400 hover:text-blue-600 rounded-full transition-colors">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+    </button>
+    <button onclick="loadData(true)" aria-label="Aggiorna dati" class="p-2.5 text-slate-400 hover:text-blue-600 rounded-full transition-colors">
+      <svg class="refresh-icon w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 4v5h5M20 20v-5h-5M5.6 15A8 8 0 0018.4 17M18.4 9A8 8 0 005.6 7"></path></svg>
+    </button>
+  </div>
+
+  <!-- HEADER MOBILE -->
+  <div class="md:hidden bg-white shadow-sm z-10 top-safe">
+    <div class="px-4 py-2.5 flex items-center justify-between">
+      <h1 class="text-2xl font-extrabold text-slate-900 tracking-tight">Gestione<span class="text-blue-600">Consumi</span></h1>
+      <div class="flex items-center gap-1">
+        <span id="mobileTitle" class="text-sm font-bold uppercase tracking-widest text-slate-400 mr-1">Nuovo</span>
+        <button onclick="openConfigSheet()" aria-label="Impostazioni API" class="p-2 text-slate-400 active:text-blue-600 rounded-full">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+        </button>
+        <button onclick="loadData(true)" aria-label="Aggiorna dati" class="p-2 -mr-2 text-slate-400 active:text-blue-600 rounded-full">
+          <svg class="refresh-icon w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M4 4v5h5M20 20v-5h-5M5.6 15A8 8 0 0018.4 17M18.4 9A8 8 0 005.6 7"></path></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AREA CONTENUTO PRINCIPALE -->
+  <main class="flex-1 overflow-y-auto w-full p-3 sm:p-5 main-pad">
+    <div class="w-full max-w-5xl mx-auto">
+
+    <!-- VISTA: INSERISCI -->
+    <div id="view-inserisci" class="view-section space-y-4">
+      <div class="bg-white rounded-2xl md:rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="bg-slate-50 px-4 py-3 md:px-6 md:py-5 border-b border-slate-100">
+          <h2 class="text-2xl font-bold text-slate-800 flex items-center">
+            <svg class="w-7 h-7 md:w-8 md:h-8 mr-2.5 md:mr-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+            Nuovo Rifornimento
+          </h2>
+        </div>
+        <form id="fuelForm" onsubmit="submitForm(event)" class="p-4 md:p-6 space-y-4 md:space-y-6" autocomplete="off" novalidate>
+          <div class="grid grid-cols-2 gap-3 md:gap-6">
+            <div class="col-span-2">
+              <label for="data" class="block text-sm md:text-base font-bold text-slate-500 uppercase tracking-wider mb-1.5">Data</label>
+              <input type="date" id="data" required enterkeyhint="next" class="field block w-full rounded-xl md:rounded-2xl border-slate-200 bg-slate-50 shadow-sm border px-4 py-3 md:p-5 font-bold focus:bg-white focus:border-blue-500 outline-none transition-colors">
+            </div>
+            <div class="col-span-2">
+              <label for="km_totali" class="block text-sm md:text-base font-bold text-slate-500 uppercase tracking-wider mb-1.5">Km Totali</label>
+              <input type="text" inputmode="numeric" pattern="[0-9]*" id="km_totali" required placeholder="Es. 15000" autocomplete="off" enterkeyhint="next" class="field block w-full rounded-xl md:rounded-2xl border-slate-200 bg-slate-50 shadow-sm border px-4 py-3 md:p-5 font-bold focus:bg-white focus:border-blue-500 outline-none transition-colors">
+              <p id="kmHint" class="hidden mt-1.5 text-base text-slate-500 font-medium"></p>
+            </div>
+            <div>
+              <label for="litri_carburante" class="block text-sm md:text-base font-bold text-slate-500 uppercase tracking-wider mb-1.5">Litri</label>
+              <input type="text" inputmode="decimal" id="litri_carburante" required placeholder="Es. 15,5" autocomplete="off" enterkeyhint="next" class="field block w-full rounded-xl md:rounded-2xl border-slate-200 bg-slate-50 shadow-sm border px-4 py-3 md:p-5 font-bold focus:bg-white focus:border-blue-500 outline-none transition-colors">
+            </div>
+            <div>
+              <label for="prezzo_litro" class="block text-sm md:text-base font-bold text-slate-500 uppercase tracking-wider mb-1.5">Prezzo/L (€)</label>
+              <input type="text" inputmode="decimal" id="prezzo_litro" required placeholder="Es. 1,859" autocomplete="off" enterkeyhint="done" class="field block w-full rounded-xl md:rounded-2xl border-slate-200 bg-slate-50 shadow-sm border px-4 py-3 md:p-5 font-bold focus:bg-white focus:border-blue-500 outline-none transition-colors">
+            </div>
+          </div>
+
+          <!-- Extra: tipo, distributore, note -->
+          <div id="extrasBox" class="hidden space-y-3">
+            <div id="tipoRow" class="hidden">
+              <span class="block text-sm md:text-base font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tipo rifornimento</span>
+              <div class="grid grid-cols-2 gap-2" role="group" aria-label="Tipo rifornimento">
+                <button type="button" id="tipoPieno" onclick="setTipo('Pieno')" class="py-3.5 rounded-xl border font-bold text-lg transition-colors">Pieno</button>
+                <button type="button" id="tipoParziale" onclick="setTipo('Parziale')" class="py-3.5 rounded-xl border font-bold text-lg transition-colors">Parziale</button>
+              </div>
+              <p id="tipoHint" class="hidden mt-1.5 text-base text-slate-500 font-medium">Parziale: non calcolo l'efficienza, il prossimo pieno la calcolerà sull'intero ciclo.</p>
+            </div>
+            <button type="button" id="detailsBtn" onclick="toggleDetails()" class="hidden text-base font-bold text-blue-600 py-2">+ Distributore e note</button>
+            <div id="detailsBox" class="hidden space-y-3">
+              <div id="distRow" class="hidden">
+                <label for="distributore" class="block text-sm md:text-base font-bold text-slate-500 uppercase tracking-wider mb-1.5">Distributore</label>
+                <input type="text" id="distributore" list="distList" maxlength="80" placeholder="Es. Eni Via Roma" autocomplete="off" enterkeyhint="next" class="field block w-full rounded-xl md:rounded-2xl border-slate-200 bg-slate-50 shadow-sm border px-4 py-3 md:p-5 font-semibold focus:bg-white focus:border-blue-500 outline-none transition-colors">
+                <datalist id="distList"></datalist>
+              </div>
+              <div id="noteRow" class="hidden">
+                <label for="note" class="block text-sm md:text-base font-bold text-slate-500 uppercase tracking-wider mb-1.5">Note</label>
+                <input type="text" id="note" maxlength="300" placeholder="Facoltative" autocomplete="off" enterkeyhint="done" class="field block w-full rounded-xl md:rounded-2xl border-slate-200 bg-slate-50 shadow-sm border px-4 py-3 md:p-5 font-semibold focus:bg-white focus:border-blue-500 outline-none transition-colors">
+              </div>
+            </div>
+          </div>
+
+          <!-- Anteprima live -->
+          <div id="previewBox" class="hidden rounded-xl bg-blue-50 border border-blue-100 px-4 py-3">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <span class="block text-sm font-bold text-blue-400 uppercase tracking-wider">Costo totale</span>
+                <span id="prevCosto" class="text-2xl font-extrabold text-blue-700">—</span>
+              </div>
+              <div>
+                <span class="block text-sm font-bold text-blue-400 uppercase tracking-wider">Efficienza stimata</span>
+                <span id="prevEff" class="text-2xl font-extrabold text-blue-700">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Avviso km -->
+          <div id="kmWarning" class="hidden rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-base font-semibold text-amber-800"></div>
+
+          <button type="submit" id="submitBtn" class="w-full bg-blue-600 text-white py-4 rounded-xl md:rounded-2xl font-bold text-xl md:text-2xl shadow-lg shadow-blue-500/30 hover:bg-blue-700 active:scale-[0.98] transition-all flex justify-center items-center">
+            Salva Dati
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- VISTA: CRUSCOTTO -->
+    <div id="view-cruscotto" class="view-section hidden space-y-4 md:space-y-6">
+      <div class="bg-white rounded-2xl md:rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="bg-slate-50 px-4 py-3 md:px-6 md:py-5 border-b border-slate-100">
+          <h2 class="text-2xl font-bold text-slate-800 flex items-center">
+            <svg class="w-7 h-7 md:w-8 md:h-8 mr-2.5 md:mr-3 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"></path></svg>
+            Statistiche
+          </h2>
+        </div>
+        <div class="p-3 md:p-6 bg-slate-50/50">
+          <div id="kpiContainer" class="grid grid-cols-2 xl:grid-cols-4 gap-2.5 md:gap-5"></div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl md:rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="bg-slate-50 px-4 py-3 md:px-6 md:py-5 border-b border-slate-100 flex items-center justify-between gap-3">
+          <h2 class="text-2xl font-bold text-slate-800 flex items-center">
+            <svg class="w-7 h-7 md:w-8 md:h-8 mr-2.5 md:mr-3 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+            Andamento
+          </h2>
+          <select id="yearSelect" onchange="updateChartsYear()" aria-label="Anno" class="bg-white border border-slate-300 text-slate-700 py-2 px-3 md:py-3 md:px-5 rounded-xl font-bold text-lg md:text-xl shadow-sm outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 cursor-pointer">
+            <option value="">…</option>
+          </select>
+        </div>
+        <div class="p-3 md:p-6 bg-slate-50/50 border-b border-slate-100">
+          <h3 id="statsTitle" class="text-sm md:text-base font-bold text-slate-500 uppercase tracking-wider mb-2 md:mb-4">Dettaglio anno</h3>
+          <div id="statsContainer" class="grid grid-cols-2 xl:grid-cols-4 gap-2.5 md:gap-5"></div>
+        </div>
+        <div class="p-3 md:p-6 bg-white grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-10">
+          <div>
+            <h3 class="text-sm md:text-base font-bold text-slate-500 uppercase tracking-wider mb-2 md:mb-4 text-center">Prezzo vs Efficienza</h3>
+            <div class="relative h-72 md:h-80 w-full"><canvas id="chart1"></canvas></div>
+          </div>
+          <hr class="lg:hidden border-slate-200">
+          <div>
+            <h3 class="text-sm md:text-base font-bold text-slate-500 uppercase tracking-wider mb-2 md:mb-4 text-center">Consumo vs Costo/Km</h3>
+            <div class="relative h-72 md:h-80 w-full"><canvas id="chart2"></canvas></div>
+          </div>
+          <hr class="lg:hidden border-slate-200">
+          <div class="lg:col-span-2">
+            <h3 class="text-sm md:text-base font-bold text-slate-500 uppercase tracking-wider mb-2 md:mb-4 text-center">Spesa mensile (€)</h3>
+            <div class="relative h-64 md:h-72 w-full"><canvas id="chart3"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VISTA: STORICO -->
+    <div id="view-storico" class="view-section hidden space-y-4">
+      <div class="bg-white rounded-2xl md:rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="bg-slate-50 px-4 py-3 md:px-6 md:py-5 border-b border-slate-100">
+          <h2 class="text-2xl font-bold text-slate-800 flex items-center">
+            <svg class="w-7 h-7 md:w-8 md:h-8 mr-2.5 md:mr-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            Cronologia
+          </h2>
+        </div>
+
+        <div class="p-3 md:p-6 bg-slate-50/50">
+          <div id="historyContainer" class="space-y-3 md:space-y-5"></div>
+
+          <div class="mt-5 md:mt-8 flex justify-between items-center gap-2">
+            <button onclick="changePage(-1)" id="btn-prev" class="px-4 py-3 md:px-6 md:py-4 bg-white border border-slate-300 rounded-xl font-bold text-lg md:text-xl text-slate-600 shadow-sm active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition-all">&larr; Indietro</button>
+            <span id="page-indicator" class="font-bold text-slate-500 text-sm md:text-base uppercase tracking-wider text-center">Pag. 1 di 1</span>
+            <button onclick="changePage(1)" id="btn-next" class="px-4 py-3 md:px-6 md:py-4 bg-white border border-slate-300 rounded-xl font-bold text-lg md:text-xl text-slate-600 shadow-sm active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 transition-all">Avanti &rarr;</button>
+          </div>
+
+          <div class="mt-4 grid grid-cols-2 gap-2">
+            <button onclick="exportCsv()" class="py-3 bg-white border border-slate-300 rounded-xl font-bold text-base text-slate-600 shadow-sm active:scale-95 transition-all">Esporta CSV</button>
+            <button onclick="copyCsv()" class="py-3 bg-white border border-slate-300 rounded-xl font-bold text-base text-slate-600 shadow-sm active:scale-95 transition-all">Copia CSV</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    </div>
+  </main>
+
+  <!-- BOTTOM SHEET (Modifica / Elimina / Configurazione API) -->
+  <div id="sheet" class="hidden fixed inset-0 z-[70] flex items-end md:items-center justify-center bg-black/50" onclick="if(event.target===this)closeSheet()">
+    <div id="sheetBody" class="sheet-in bg-white w-full md:max-w-md rounded-t-3xl md:rounded-3xl px-5 pt-5 sheet-safe max-h-[92dvh] overflow-y-auto shadow-2xl"></div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toastHost" class="fixed left-0 right-0 z-[80] flex justify-center px-4 pointer-events-none"></div>
+
+  <!-- BOTTOM NAV (Solo Mobile) -->
+  <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] z-50 nav-safe" aria-label="Navigazione principale">
+    <div class="flex justify-around items-center">
+      <button onclick="switchTab('inserisci')" id="nav-mobile-inserisci" aria-label="Nuovo rifornimento" class="nav-btn-mobile flex-1 py-2.5 flex flex-col items-center justify-center text-blue-600 transition-colors active:bg-slate-50">
+        <svg class="w-7 h-7 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
+        <span class="text-[13px] font-extrabold uppercase tracking-wider">Nuovo</span>
+      </button>
+      <button onclick="switchTab('cruscotto')" id="nav-mobile-cruscotto" aria-label="Dashboard" class="nav-btn-mobile flex-1 py-2.5 flex flex-col items-center justify-center text-slate-400 transition-colors active:bg-slate-50">
+        <svg class="w-7 h-7 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path></svg>
+        <span class="text-[13px] font-extrabold uppercase tracking-wider">Dashboard</span>
+      </button>
+      <button onclick="switchTab('storico')" id="nav-mobile-storico" aria-label="Storico" class="nav-btn-mobile flex-1 py-2.5 flex flex-col items-center justify-center text-slate-400 transition-colors active:bg-slate-50">
+        <svg class="w-7 h-7 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        <span class="text-[13px] font-extrabold uppercase tracking-wider">Storico</span>
+      </button>
+    </div>
+  </nav>
+
+  <script>
+    // ---------- Service Worker PWA ----------
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+      });
+    }
+
+    // ---------- Wrapper API REST ----------
+    const API_URL_KEY = 'consumi_api_url';
+    const API_TOKEN_KEY = 'consumi_api_token';
+
+    function getApiConfig() {
+      try {
+        return {
+          url: (localStorage.getItem(API_URL_KEY) || '').trim(),
+          token: (localStorage.getItem(API_TOKEN_KEY) || '').trim()
+        };
+      } catch (e) {
+        return { url: '', token: '' };
+      }
+    }
+
+    async function apiCall(action, payload = {}) {
+      const cfg = getApiConfig();
+      if (!cfg.url || !cfg.token) {
+        openConfigSheet();
+        throw new Error('Configura URL Web App e Token API');
+      }
+
+      const body = Object.assign({}, payload, { action: action, token: cfg.token });
+      const res = await fetch(cfg.url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) throw new Error('Errore HTTP ' + res.status);
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error || 'Errore dal server');
+      return json.data;
+    }
+
+    // ---------- Utilità ----------
+    function todayLocalISO() {
+      const d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    function parseNum(s) {
+      if (s === undefined || s === null) return NaN;
+      return parseFloat(String(s).trim().replace(',', '.'));
+    }
+    function isMobile() { return window.innerWidth < 640; }
+    function buzz(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
+
+    function showToast(msg, type) {
+      const host = document.getElementById('toastHost');
+      const colors = type === 'error' ? 'bg-red-600' : (type === 'warn' ? 'bg-amber-500' : 'bg-slate-900');
+      const t = document.createElement('div');
+      t.setAttribute('role', 'status');
+      t.className = `toast-in ${colors} text-white px-5 py-3 rounded-2xl shadow-xl font-semibold text-lg max-w-md pointer-events-auto mb-2`;
+      t.textContent = msg;
+      host.appendChild(t);
+      setTimeout(() => {
+        t.style.transition = 'opacity .25s';
+        t.style.opacity = '0';
+        setTimeout(() => t.remove(), 260);
+      }, type === 'error' ? 5000 : 2600);
+    }
+
+    // ---------- Stato ----------
+    document.getElementById('data').value = todayLocalISO();
+
+    let myChart1 = null, myChart2 = null, myChart3 = null;
+    let avgEff = null;
+    let globalHistoricalData = [];
+    let latestRecord = null;
+    let lastKm = null;
+    let kmWarned = false;
+    let extras = { tipo: false, distributore: false, note: false };
+    let currentTipo = 'Pieno';
+
+    let sortedHistory = [];
+    let currentPage = 1;
+    const itemsPerPage = 8;
+    const TAB_TITLES = { inserisci: 'Nuovo', cruscotto: 'Dashboard', storico: 'Storico' };
+
+    // ---------- Navigazione ----------
+    function switchTab(tabName) {
+      document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+      document.getElementById('view-' + tabName).classList.remove('hidden');
+      document.getElementById('mobileTitle').textContent = TAB_TITLES[tabName] || '';
+
+      document.querySelectorAll('.nav-btn-desktop').forEach(el => {
+        el.classList.remove('bg-slate-800', 'text-white', 'shadow-md');
+        el.classList.add('text-slate-500');
+      });
+      const activeDesktop = document.getElementById('nav-desktop-' + tabName);
+      if (activeDesktop) {
+        activeDesktop.classList.add('bg-slate-800', 'text-white', 'shadow-md');
+        activeDesktop.classList.remove('text-slate-500');
+      }
+
+      document.querySelectorAll('.nav-btn-mobile').forEach(el => {
+        el.classList.remove('text-blue-600', 'text-indigo-500', 'text-emerald-500');
+        el.classList.add('text-slate-400');
+        el.querySelector('svg').setAttribute('stroke-width', '2');
+      });
+      const activeMobile = document.getElementById('nav-mobile-' + tabName);
+      if (activeMobile) {
+        activeMobile.classList.remove('text-slate-400');
+        activeMobile.querySelector('svg').setAttribute('stroke-width', '2.5');
+        if (tabName === 'inserisci') activeMobile.classList.add('text-blue-600');
+        if (tabName === 'cruscotto') activeMobile.classList.add('text-indigo-500');
+        if (tabName === 'storico') activeMobile.classList.add('text-emerald-500');
+      }
+
+      document.querySelector('main').scrollTo({ top: 0 });
+      if (tabName === 'cruscotto' && globalHistoricalData.length > 0) updateChartsYear();
+    }
+
+    switchTab('inserisci');
+
+    // ---------- Skeleton & Errori ----------
+    function renderSkeletons() {
+      const kpi = document.getElementById('kpiContainer');
+      kpi.innerHTML = '';
+      for (let i = 0; i < 8; i++) {
+        const d = document.createElement('div');
+        d.className = 'bg-white p-3 md:p-6 rounded-2xl border border-slate-200 animate-pulse';
+        d.innerHTML = '<div class="h-3 w-20 bg-slate-200 rounded"></div><div class="h-7 w-24 bg-slate-200 rounded mt-3"></div>';
+        kpi.appendChild(d);
+      }
+      const hist = document.getElementById('historyContainer');
+      hist.innerHTML = '';
+      for (let i = 0; i < 3; i++) {
+        const d = document.createElement('div');
+        d.className = 'bg-white p-4 rounded-2xl border border-slate-200 animate-pulse';
+        d.innerHTML = '<div class="h-5 w-28 bg-slate-200 rounded"></div><div class="grid grid-cols-2 gap-3 mt-4"><div class="h-8 bg-slate-200 rounded"></div><div class="h-8 bg-slate-200 rounded"></div></div>';
+        hist.appendChild(d);
+      }
+    }
+
+    function showLoadError(message) {
+      const html = `
+        <div class="col-span-full text-center py-6">
+          <p class="text-lg font-semibold text-red-600 mb-2">Impossibile caricare i dati</p>
+          <p class="text-base text-slate-500 mb-4">${esc(message || '')}</p>
+          <div class="flex justify-center gap-2">
+            <button onclick="openConfigSheet()" class="px-5 py-3 bg-slate-200 text-slate-800 rounded-xl font-bold text-base active:scale-95 transition-all">Impostazioni API</button>
+            <button onclick="loadData(true)" class="px-5 py-3 bg-blue-600 text-white rounded-xl font-bold text-base active:scale-95 transition-all">Riprova</button>
+          </div>
+        </div>`;
+      document.getElementById('kpiContainer').innerHTML = html;
+      document.getElementById('historyContainer').innerHTML = html;
+    }
+
+    // ---------- Caricamento Dati (Stale-While-Revalidate) ----------
+    const LOCAL_CACHE_KEY = 'consumi_cache_v2';
+    let firstLoad = true;
+
+    function readLocalCache() {
+      try { const s = localStorage.getItem(LOCAL_CACHE_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; }
+    }
+    function writeLocalCache(r) {
+      try { localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify(r)); } catch (e) {}
+    }
+    function setRefreshing(on) {
+      document.querySelectorAll('.refresh-icon').forEach(el => el.classList.toggle('animate-spin', on));
+    }
+
+    function applyResponse(response) {
+      globalHistoricalData = response.historical || [];
+      latestRecord = response.latestRecord || null;
+      extras = Object.assign({ tipo: false, distributore: false, note: false }, response.extras || {});
+      try { applyExtrasUI(); } catch (e) { console.error(e); }
+      try { renderKpi(response.kpi); } catch (e) { console.error(e); }
+      try { populateYearSelect(response.selectedYear); } catch (e) { console.error(e); }
+
+      try {
+        avgEff = computeAvgEff();
+        sortedHistory = [...globalHistoricalData].reverse();
+        currentPage = 1;
+        renderHistoryPage();
+      } catch (e) { console.error(e); }
+
+      try { applyLatestToForm(); } catch (e) { console.error(e); }
+    }
+
+    function computeAvgEff() {
+      let sum = 0, n = 0;
+      globalHistoricalData.forEach(r => {
+        const e = parseFloat(r['Efficienza (km/L)']);
+        if (!isNaN(e) && e > 0) { sum += e; n++; }
+      });
+      return n > 0 ? sum / n : null;
+    }
+
+    function effBadgeClass(e) {
+      const base = 'whitespace-nowrap text-lg md:text-xl font-bold px-3 py-1.5 rounded-xl ';
+      if (avgEff === null || isNaN(e) || e <= 0) return base + 'text-slate-500 bg-slate-100';
+      if (e >= avgEff * 1.03) return base + 'text-emerald-600 bg-emerald-50';
+      if (e <= avgEff * 0.97) return base + 'text-red-600 bg-red-50';
+      return base + 'text-amber-700 bg-amber-50';
+    }
+
+    function monthTotals(key) {
+      let spesa = 0, litri = 0, n = 0;
+      globalHistoricalData.forEach(r => {
+        const d = r['Data'];
+        if (typeof d === 'string' && d.slice(0, 7) === key) {
+          n++;
+          const c = parseFloat(r['Costo Totale (€)']); if (!isNaN(c)) spesa += c;
+          const l = parseFloat(r['Litri Carburante']); if (!isNaN(l)) litri += l;
+        }
+      });
+      return { spesa, litri, n };
+    }
+
+    function monthHeaderEl(key) {
+      const parts = key.split('-');
+      const name = MESI_LUNGHI[parseInt(parts[1], 10) - 1] || key;
+      const t = monthTotals(key);
+      const el = document.createElement('div');
+      el.className = 'flex flex-wrap items-baseline justify-between gap-x-3 px-1 pt-2';
+      el.innerHTML =
+        '<span class="text-base md:text-lg font-extrabold text-slate-700 uppercase tracking-wider">' + name + ' ' + parts[0] + '</span>' +
+        '<span class="text-sm md:text-base font-semibold text-slate-500">' + fmtEur(t.spesa) + ' · ' +
+        t.litri.toLocaleString('it-IT', { maximumFractionDigits: 1 }) + ' L · ' + t.n + (t.n === 1 ? ' pieno' : ' pieni') + '</span>';
+      return el;
+    }
+
+    async function loadData(force) {
+      const cfg = getApiConfig();
+      if (!cfg.url || !cfg.token) {
+        openConfigSheet();
+        return;
+      }
+
+      let hadData = globalHistoricalData.length > 0;
+      if (firstLoad) {
+        const cached = readLocalCache();
+        if (cached) {
+          try { applyResponse(cached); hadData = true; } catch (e) {}
+        }
+        firstLoad = false;
+      }
+
+      if (!hadData) renderSkeletons();
+      setRefreshing(true);
+
+      try {
+        const response = await apiCall('getData', { force: force === true });
+        applyResponse(response);
+        writeLocalCache(response);
+        if (force === true) showToast('Dati aggiornati ✓');
+      } catch (error) {
+        console.error(error);
+        if (!hadData) showLoadError(error && error.message);
+        showToast(error.message || 'Errore dal server', 'error');
+      } finally {
+        setRefreshing(false);
+      }
+    }
+
+    // ---------- Precompilazione & Extra ----------
+    function findKey(record, predicate) {
+      return Object.keys(record).find(k => predicate(k.trim().toUpperCase()));
+    }
+
+    function applyLatestToForm() {
+      lastKm = null;
+      const hint = document.getElementById('kmHint');
+      hint.classList.add('hidden');
+      if (!latestRecord) return;
+
+      const kmKey = findKey(latestRecord, k => k.includes('KM') && !k.includes('PERCORSI') && !k.includes('COSTO') && !k.includes('/'));
+      if (kmKey) {
+        const v = parseNum(latestRecord[kmKey]);
+        if (!isNaN(v)) {
+          lastKm = v;
+          hint.textContent = 'Ultimo: ' + v.toLocaleString('it-IT') + ' km';
+          hint.classList.remove('hidden');
+        }
+      }
+
+      const priceInput = document.getElementById('prezzo_litro');
+      if (!priceInput.value) {
+        const pKey = findKey(latestRecord, k => k.startsWith('PREZZO'));
+        if (pKey) {
+          const p = parseNum(latestRecord[pKey]);
+          if (!isNaN(p) && p > 0) priceInput.value = p.toFixed(3).replace('.', ',');
+        }
+      }
+      updatePreview();
+    }
+
+    function isPartialRec(rec) {
+      const k = findKey(rec, k => k === 'TIPO');
+      return !!k && String(rec[k]).trim().toLowerCase() === 'parziale';
+    }
+    function kmKeyOf(rec) {
+      return findKey(rec, k => k.includes('KM') && !k.includes('PERCORSI') && !k.includes('COSTO') && !k.includes('/'));
+    }
+
+    function styleTipoButtons(pieno, parz, tipo) {
+      const on = ['bg-blue-600', 'text-white', 'border-blue-600'];
+      const onWarn = ['bg-amber-500', 'text-white', 'border-amber-500'];
+      const off = ['bg-slate-50', 'text-slate-600', 'border-slate-200'];
+      [pieno, parz].forEach(b => b.classList.remove(...on, ...onWarn, ...off));
+      pieno.classList.add(...(tipo === 'Pieno' ? on : off));
+      parz.classList.add(...(tipo === 'Parziale' ? onWarn : off));
+      pieno.setAttribute('aria-pressed', tipo === 'Pieno');
+      parz.setAttribute('aria-pressed', tipo === 'Parziale');
+    }
+
+    function setTipo(t) {
+      currentTipo = t;
+      styleTipoButtons(document.getElementById('tipoPieno'), document.getElementById('tipoParziale'), t);
+      document.getElementById('tipoHint').classList.toggle('hidden', t !== 'Parziale');
+      updatePreview();
+    }
+
+    function toggleDetails() {
+      const box = document.getElementById('detailsBox');
+      const btn = document.getElementById('detailsBtn');
+      const open = box.classList.toggle('hidden') === false;
+      btn.textContent = open ? '– Nascondi dettagli' : '+ Distributore e note';
+    }
+
+    function applyExtrasUI() {
+      const any = extras.tipo || extras.distributore || extras.note;
+      document.getElementById('extrasBox').classList.toggle('hidden', !any);
+      document.getElementById('tipoRow').classList.toggle('hidden', !extras.tipo);
+      document.getElementById('distRow').classList.toggle('hidden', !extras.distributore);
+      document.getElementById('noteRow').classList.toggle('hidden', !extras.note);
+      document.getElementById('detailsBtn').classList.toggle('hidden', !(extras.distributore || extras.note));
+      styleTipoButtons(document.getElementById('tipoPieno'), document.getElementById('tipoParziale'), currentTipo);
+
+      const dl = document.getElementById('distList');
+      dl.innerHTML = '';
+      if (extras.distributore) {
+        const seen = new Set();
+        for (let i = globalHistoricalData.length - 1; i >= 0 && seen.size < 15; i--) {
+          const k = findKey(globalHistoricalData[i], k => k === 'DISTRIBUTORE');
+          const v = k ? String(globalHistoricalData[i][k] || '').trim() : '';
+          if (v && !seen.has(v.toLowerCase())) {
+            seen.add(v.toLowerCase());
+            const o = document.createElement('option'); o.value = v; dl.appendChild(o);
+          }
+        }
+      }
+    }
+
+    function estimateEff(km, litri) {
+      if (isNaN(km) || lastKm === null || sortedHistory.length === 0) return null;
+      let liters = litri, base = null;
+      for (let i = 0; i < sortedHistory.length; i++) {
+        const rec = sortedHistory[i];
+        if (!isPartialRec(rec)) {
+          const kk = kmKeyOf(rec);
+          const v = kk ? parseNum(rec[kk]) : NaN;
+          if (!isNaN(v)) base = v;
+          break;
+        }
+        const l = parseNum(rec['Litri Carburante']);
+        if (!isNaN(l)) liters += l;
+      }
+      if (base === null || km <= base || liters <= 0) return null;
+      return (km - base) / liters;
+    }
+
+    function updatePreview() {
+      const km = parseNum(document.getElementById('km_totali').value);
+      const litri = parseNum(document.getElementById('litri_carburante').value);
+      const prezzo = parseNum(document.getElementById('prezzo_litro').value);
+      const box = document.getElementById('previewBox');
+      const warn = document.getElementById('kmWarning');
+
+      if (!isNaN(litri) && !isNaN(prezzo) && litri > 0 && prezzo > 0) {
+        box.classList.remove('hidden');
+        document.getElementById('prevCosto').textContent =
+          (litri * prezzo).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+
+        let eff = '—';
+        if (extras.tipo && currentTipo === 'Parziale') {
+          eff = 'n/d (parziale)';
+        } else {
+          const e = estimateEff(km, litri);
+          if (e !== null) eff = e.toFixed(2).replace('.', ',') + ' km/L';
+        }
+        document.getElementById('prevEff').textContent = eff;
+      } else {
+        box.classList.add('hidden');
+      }
+
+      kmWarned = false;
+      resetSubmitLabel();
+      if (!isNaN(km) && lastKm !== null && km <= lastKm) {
+        warn.textContent = 'Attenzione: i km inseriti (' + km.toLocaleString('it-IT') + ') sono pari o inferiori all\'ultimo rifornimento (' + lastKm.toLocaleString('it-IT') + ').';
+        warn.classList.remove('hidden');
+      } else {
+        warn.classList.add('hidden');
+      }
+    }
+
+    ['km_totali', 'litri_carburante', 'prezzo_litro'].forEach(id => {
+      document.getElementById(id).addEventListener('input', updatePreview);
+    });
+
+    function resetSubmitLabel() {
+      const btn = document.getElementById('submitBtn');
+      if (btn.disabled) return;
+      btn.textContent = 'Salva Dati';
+      btn.classList.remove('bg-amber-500', 'hover:bg-amber-600');
+      btn.classList.add('bg-blue-600', 'hover:bg-blue-700');
+    }
+
+    // ---------- KPI ----------
+    function createStatCard(key, displayVal) {
+      const div = document.createElement('div');
+      div.className = 'bg-white p-3 md:p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center min-w-0';
+      div.innerHTML = `
+        <span class="text-[13px] md:text-sm font-bold text-slate-500 uppercase tracking-wide leading-tight">${key}</span>
+        <span class="text-2xl md:text-4xl font-extrabold text-slate-800 mt-1.5 md:mt-3 break-words leading-tight">${displayVal}</span>
+      `;
+      return div;
+    }
+
+    function formatValue(key, val) {
+      if (val === undefined || val === null || val === '') return '';
+      const keyUpper = key.toUpperCase();
+
+      if (keyUpper.includes('VAR. %')) {
+        const num = parseFloat(val);
+        if (!isNaN(num)) return (num > 0 ? '+' : '') + (num * 100).toFixed(1).replace('.', ',') + '%';
+        return val.toString();
+      }
+
+      const num = parseFloat(val);
+      if (isNaN(num)) return val;
+
+      if (keyUpper.includes('PREZZO')) return num.toFixed(3).replace('.', ',') + ' €';
+      if (keyUpper.includes('SPESA') || keyUpper.includes('COSTO TOTALE')) return num.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+      if (keyUpper.includes('COSTO MEDIO')) return num.toFixed(3).replace('.', ',') + ' €/km';
+      if (keyUpper.includes('EFFICIENZA')) return num.toFixed(2).replace('.', ',') + ' km/L';
+      if (keyUpper.includes('KM')) return num.toLocaleString('it-IT') + ' km';
+      if (keyUpper.includes('CONSUMO')) return num.toFixed(2).replace('.', ',') + ' L/100km';
+      if (keyUpper.includes('LITRI')) return num.toLocaleString('it-IT') + ' L';
+      return val.toString();
+    }
+
+    function renderKpi(kpi) {
+      const container = document.getElementById('kpiContainer');
+      container.innerHTML = '';
+      if (!kpi || Object.keys(kpi).length === 0) {
+        container.innerHTML = '<div class="col-span-full text-center text-slate-500 py-6 font-medium">Nessuna statistica disponibile</div>';
+        return;
+      }
+
+      const targetOrder = [
+        'SPESA TOTALE', 'KM TOTALI PERCORSI', 'COSTO MEDIO / KM', 'EFFICIENZA MEDIA',
+        'ULTIMO PREZZO', 'VAR. % PRECEDENTE', 'PREZZO MINIMO', 'PREZZO MASSIMO'
+      ];
+      const kpiKeys = Object.keys(kpi);
+
+      targetOrder.forEach(target => {
+        const actualKey = kpiKeys.find(k => k && k.trim().toUpperCase() === target);
+        if (actualKey && kpi[actualKey] !== undefined && kpi[actualKey] !== '') {
+          container.appendChild(createStatCard(actualKey, formatValue(actualKey, kpi[actualKey])));
+        }
+      });
+    }
+
+    // ---------- Storico ----------
+    function renderHistoryPage() {
+      const container = document.getElementById('historyContainer');
+      container.innerHTML = '';
+
+      if (sortedHistory.length === 0) {
+        container.innerHTML = '<div class="text-lg text-slate-500 font-medium text-center py-8">Nessun dato disponibile</div>';
+        document.getElementById('page-indicator').innerText = 'Pag. 1 di 1';
+        document.getElementById('btn-prev').disabled = true;
+        document.getElementById('btn-next').disabled = true;
+        return;
+      }
+
+      const totalPages = Math.ceil(sortedHistory.length / itemsPerPage);
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const pageItems = sortedHistory.slice(startIndex, startIndex + itemsPerPage);
+
+      let prevMonth = null;
+      pageItems.forEach((record, index) => {
+        const getVal = target => {
+          const k = Object.keys(record).find(key => key.trim() === target);
+          return k && record[k] !== undefined ? record[k] : '';
+        };
+
+        const rawDate = getVal('Data');
+        if (typeof rawDate === 'string' && rawDate.length >= 7) {
+          const mk = rawDate.slice(0, 7);
+          if (mk !== prevMonth) { container.appendChild(monthHeaderEl(mk)); prevMonth = mk; }
+        }
+        const effClass = effBadgeClass(parseFloat(getVal('Efficienza (km/L)')));
+        const partial = isPartialRec(record);
+        const dist = String(getVal('Distributore') || '').trim();
+        const note = String(getVal('Note') || '').trim();
+
+        const dataStr = formatDateIT(rawDate);
+        const efficienza = formatValue('Efficienza (km/L)', getVal('Efficienza (km/L)'));
+        const km = formatValue('Km Percorsi', getVal('Km Percorsi'));
+        const litri = formatValue('Litri', getVal('Litri Carburante'));
+        const costo = formatValue('Costo Totale', getVal('Costo Totale (€)'));
+        const prezzo = formatValue('Prezzo', getVal('Prezzo/Litro (€)'));
+
+        const isLatest = (currentPage === 1 && index === 0);
+        const cardClass = isLatest ? 'bg-white border-2 border-emerald-400 shadow-md' : 'bg-white border border-slate-200 shadow-sm';
+        const badge = isLatest ? `<span class="bg-emerald-100 text-emerald-700 text-[13px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider ml-2">Ultimo</span>` : '';
+
+        const actions = isLatest ? `
+          <div class="flex gap-2 mt-4 pt-3 border-t border-slate-100">
+            <button onclick="openEdit()" class="flex-1 py-3 rounded-xl bg-slate-100 text-slate-700 font-bold text-lg active:scale-95 transition-all">Modifica</button>
+            <button onclick="openDelete()" class="flex-1 py-3 rounded-xl bg-red-50 text-red-600 font-bold text-lg active:scale-95 transition-all">Elimina</button>
+          </div>` : '';
+
+        const card = document.createElement('div');
+        card.className = `${cardClass} p-4 md:p-6 rounded-2xl flex flex-col w-full`;
+        card.innerHTML = `
+          <div class="flex flex-wrap justify-between items-center gap-x-2 gap-y-2 mb-3 border-b border-slate-100 pb-3">
+            <div class="flex items-center">
+              <span class="text-xl md:text-2xl font-extrabold text-slate-800">${dataStr}</span>
+              ${badge}
+            </div>
+            ${partial
+              ? '<span class="whitespace-nowrap text-lg md:text-xl font-bold px-3 py-1.5 rounded-xl text-amber-700 bg-amber-50">Parziale</span>'
+              : '<span class="' + effClass + '">' + efficienza + '</span>'}
+          </div>
+          <div class="grid grid-cols-2 gap-x-4 gap-y-3">
+            <div>
+              <span class="block text-[13px] md:text-sm font-bold text-slate-400 uppercase tracking-wider">Km Percorsi</span>
+              <span class="text-xl md:text-2xl font-bold text-slate-700">${km}</span>
+            </div>
+            <div>
+              <span class="block text-[13px] md:text-sm font-bold text-slate-400 uppercase tracking-wider">Litri</span>
+              <span class="text-xl md:text-2xl font-bold text-slate-700">${litri}</span>
+            </div>
+            <div>
+              <span class="block text-[13px] md:text-sm font-bold text-slate-400 uppercase tracking-wider">Costo Totale</span>
+              <span class="text-xl md:text-2xl font-bold text-slate-700">${costo}</span>
+            </div>
+            <div>
+              <span class="block text-[13px] md:text-sm font-bold text-slate-400 uppercase tracking-wider">Prezzo/Litro</span>
+              <span class="text-xl md:text-2xl font-bold text-slate-700">${prezzo}</span>
+            </div>
+          </div>
+          ${(dist || note) ? `
+          <div class="mt-3 pt-3 border-t border-slate-100 text-base leading-snug">
+            ${dist ? `<span class="font-bold text-slate-700">${esc(dist)}</span>` : ''}${(dist && note) ? ' · ' : ''}${note ? `<span class="text-slate-500">${esc(note)}</span>` : ''}
+          </div>` : ''}
+          ${actions}
+        `;
+        container.appendChild(card);
+      });
+
+      document.getElementById('page-indicator').innerText = `Pag. ${currentPage} di ${totalPages}`;
+      document.getElementById('btn-prev').disabled = (currentPage === 1);
+      document.getElementById('btn-next').disabled = (currentPage === totalPages);
+    }
+
+    function formatDateIT(d) {
+      if (typeof d === 'string') {
+        const p = d.split('-');
+        if (p.length === 3 && p[0].length === 4) return p[2] + '/' + p[1] + '/' + p[0];
+      }
+      return d;
+    }
+
+    function changePage(direction) {
+      const totalPages = Math.max(1, Math.ceil(sortedHistory.length / itemsPerPage));
+      currentPage += direction;
+      if (currentPage < 1) currentPage = 1;
+      if (currentPage > totalPages) currentPage = totalPages;
+      renderHistoryPage();
+      document.querySelector('main').scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ---------- Grafici ----------
+    function populateYearSelect() {
+      const select = document.getElementById('yearSelect');
+      const previous = select.value;
+      select.innerHTML = '';
+
+      const yearsSet = new Set();
+      globalHistoricalData.forEach(row => { if (row['Anno']) yearsSet.add(row['Anno'].toString()); });
+      const yearsArray = Array.from(yearsSet).sort((a, b) => b - a);
+
+      if (yearsArray.length === 0) {
+        const currentYear = new Date().getFullYear().toString();
+        const opt = document.createElement('option');
+        opt.value = currentYear; opt.text = currentYear;
+        select.appendChild(opt);
+        return;
+      }
+
+      const toSelect = yearsArray.includes(previous) ? previous : yearsArray[0];
+      yearsArray.forEach(year => {
+        const opt = document.createElement('option');
+        opt.value = year; opt.text = year;
+        if (year === toSelect) opt.selected = true;
+        select.appendChild(opt);
+      });
+      renderCharts(select.value);
+    }
+
+    function updateChartsYear() {
+      renderCharts(document.getElementById('yearSelect').value);
+    }
+
+    function renderCharts(selectedYear) {
+      if (!globalHistoricalData || globalHistoricalData.length === 0) return;
+      const chartData = globalHistoricalData.filter(row => row['Anno'] === selectedYear);
+      if (chartData.length === 0) return;
+
+      const m = isMobile();
+      const tick = m ? 13 : 14, title = m ? 14 : 16, legend = m ? 14 : 16, lw = m ? 3 : 4, pr = m ? 3 : 4;
+
+      const labels = chartData.map(row => {
+        const d = row['Data'];
+        if (d) {
+          const parts = d.split('-');
+          if (parts.length === 3) return parts[2] + '/' + parts[1];
+        }
+        return d;
+      });
+
+      const prezzoLitro = chartData.map(row => parseFloat(row['Prezzo/Litro (€)']) || 0);
+      const efficienza = chartData.map(row => parseFloat(row['Efficienza (km/L)']) || 0);
+      const consumo = chartData.map(row => parseFloat(row['Consumo (L/100km)']) || 0);
+      const costoKm = chartData.map(row => parseFloat(row['Costo/Km (€)']) || 0);
+
+      applyChartTheme();
+      try { renderStats(chartData, selectedYear); } catch (e) { console.error(e); }
+      try { renderMonthly(chartData); } catch (e) { console.error(e); }
+
+      if (myChart1) myChart1.destroy();
+      if (myChart2) myChart2.destroy();
+
+      const xAxis = { ticks: { font: { size: tick }, maxTicksLimit: m ? 6 : 12, maxRotation: 0, autoSkip: true } };
+      const baseOptions = {
+        responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { position: 'top', labels: { font: { size: legend, weight: 'bold' }, boxWidth: m ? 12 : 40, padding: m ? 10 : 14 } } }
+      };
+
+      myChart1 = new Chart(document.getElementById('chart1').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Prezzo/L (€)', data: prezzoLitro, backgroundColor: 'rgba(59, 130, 246, 0.7)', borderRadius: 6, yAxisID: 'y', order: 2 },
+            { label: 'Efficienza (km/L)', data: efficienza, type: 'line', borderColor: 'rgba(16, 185, 129, 1)', backgroundColor: 'rgba(16, 185, 129, 1)', borderWidth: lw, tension: 0.4, pointRadius: pr, yAxisID: 'y1', order: 1 }
+          ]
+        },
+        options: Object.assign({}, baseOptions, {
+          scales: {
+            y: { type: 'linear', position: 'left', title: { display: !m, text: '€ / L', font: { size: title, weight: 'bold' } }, ticks: { font: { size: tick } } },
+            y1: { type: 'linear', position: 'right', title: { display: !m, text: 'km / L', font: { size: title, weight: 'bold' } }, ticks: { font: { size: tick } }, grid: { drawOnChartArea: false } },
+            x: xAxis
+          }
+        })
+      });
+
+      myChart2 = new Chart(document.getElementById('chart2').getContext('2d'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Consumo (L/100km)', data: consumo, borderColor: 'rgba(249, 115, 22, 1)', backgroundColor: 'rgba(249, 115, 22, 1)', borderWidth: lw, tension: 0.4, pointRadius: pr, yAxisID: 'y' },
+            { label: 'Costo/Km (€)', data: costoKm, borderColor: 'rgba(239, 68, 68, 1)', backgroundColor: 'rgba(239, 68, 68, 1)', borderWidth: lw, tension: 0.4, pointRadius: pr, yAxisID: 'y1' }
+          ]
+        },
+        options: Object.assign({}, baseOptions, {
+          scales: {
+            y: { type: 'linear', position: 'left', title: { display: !m, text: 'L / 100km', font: { size: title, weight: 'bold' } }, ticks: { font: { size: tick } } },
+            y1: { type: 'linear', position: 'right', title: { display: !m, text: '€ / km', font: { size: title, weight: 'bold' } }, ticks: { font: { size: tick } }, grid: { drawOnChartArea: false } },
+            x: xAxis
+          }
+        })
+      });
+    }
+
+    function isDarkTheme() {
+      try { return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches; } catch (e) { return false; }
+    }
+    function applyChartTheme() {
+      const dark = isDarkTheme();
+      Chart.defaults.color = dark ? '#94a3b8' : '#64748b';
+      Chart.defaults.borderColor = dark ? 'rgba(148,163,184,0.18)' : 'rgba(0,0,0,0.08)';
+    }
+    try {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if (!document.getElementById('view-cruscotto').classList.contains('hidden')) updateChartsYear();
+      });
+    } catch (e) {}
+
+    const MESI_BREVI = ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu', 'Lug', 'Ago', 'Set', 'Ott', 'Nov', 'Dic'];
+    const MESI_LUNGHI = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+
+    function numOrNull(v) { const n = parseFloat(v); return isNaN(n) ? null : n; }
+    function fmtEur(n) { return n.toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'; }
+    function fmtDM(d) {
+      if (typeof d === 'string') { const p = d.split('-'); if (p.length === 3) return p[2] + '/' + p[1]; }
+      return '';
+    }
+
+    function computeStats(rows) {
+      let spesa = 0, litri = 0, km = 0, nKm = 0, best = null, worst = null;
+      const months = new Set();
+      const times = [];
+      rows.forEach(r => {
+        const cost = numOrNull(r['Costo Totale (€)']); if (cost !== null) spesa += cost;
+        const l = numOrNull(r['Litri Carburante']); if (l !== null) litri += l;
+        const k = numOrNull(r['Km Percorsi']);
+        if (k !== null && k > 0) { km += k; if (!isPartialRec(r)) nKm++; }
+        const d = r['Data'];
+        if (typeof d === 'string' && d.length >= 7) {
+          months.add(d.slice(0, 7));
+          const t = Date.parse(d); if (!isNaN(t)) times.push(t);
+        }
+        const e = numOrNull(r['Efficienza (km/L)']);
+        if (e !== null && e > 0) {
+          if (!best || e > best.v) best = { v: e, d };
+          if (!worst || e < worst.v) worst = { v: e, d };
+        }
+      });
+      times.sort((a, b) => a - b);
+      const gap = times.length > 1 ? (times[times.length - 1] - times[0]) / 86400000 / (times.length - 1) : null;
+      return {
+        count: rows.length, spesa, litri,
+        spesaMese: months.size > 0 ? spesa / months.size : null,
+        autonomia: nKm > 0 ? km / nKm : null,
+        giorniTra: gap, best, worst
+      };
+    }
+
+    function renderStats(rows, year) {
+      const c = document.getElementById('statsContainer');
+      document.getElementById('statsTitle').textContent = 'Dettaglio ' + year;
+      c.innerHTML = '';
+      const s = computeStats(rows);
+      const dash = '—';
+      const cards = [
+        ['Spesa anno', fmtEur(s.spesa)],
+        ['Spesa media / mese', s.spesaMese !== null ? fmtEur(s.spesaMese) : dash],
+        ['Rifornimenti', String(s.count)],
+        ['Litri totali', s.litri.toLocaleString('it-IT', { maximumFractionDigits: 1 }) + ' L'],
+        ['Autonomia media / pieno', s.autonomia !== null ? Math.round(s.autonomia).toLocaleString('it-IT') + ' km' : dash],
+        ['Giorni tra rifornimenti', s.giorniTra !== null ? s.giorniTra.toFixed(1).replace('.', ',') + ' gg' : dash],
+        ['Miglior efficienza', s.best ? s.best.v.toFixed(2).replace('.', ',') + ' km/L' + (fmtDM(s.best.d) ? ' · ' + fmtDM(s.best.d) : '') : dash],
+        ['Peggior efficienza', s.worst ? s.worst.v.toFixed(2).replace('.', ',') + ' km/L' + (fmtDM(s.worst.d) ? ' · ' + fmtDM(s.worst.d) : '') : dash]
+      ];
+      cards.forEach(x => c.appendChild(createStatCard(x[0], x[1])));
+    }
+
+    function renderMonthly(rows) {
+      const m = isMobile();
+      const totals = new Array(12).fill(0);
+      rows.forEach(r => {
+        const d = r['Data'];
+        const cost = numOrNull(r['Costo Totale (€)']);
+        if (typeof d === 'string' && cost !== null) {
+          const idx = parseInt(d.split('-')[1], 10) - 1;
+          if (idx >= 0 && idx < 12) totals[idx] += cost;
+        }
+      });
+      const data = totals.map(v => Math.round(v * 100) / 100);
+      if (myChart3) myChart3.destroy();
+      myChart3 = new Chart(document.getElementById('chart3').getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: MESI_BREVI,
+          datasets: [{ label: 'Spesa (€)', data, backgroundColor: 'rgba(99, 102, 241, 0.75)', borderRadius: 6 }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: ctx => ' ' + fmtEur(ctx.parsed.y) } }
+          },
+          scales: {
+            y: { beginAtZero: true, ticks: { font: { size: m ? 13 : 14 }, callback: v => v + ' €' } },
+            x: { ticks: { font: { size: m ? 12 : 14 }, maxRotation: 0, autoSkip: false } }
+          }
+        }
+      });
+    }
+
+    let resizeTimer = null;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        if (!document.getElementById('view-cruscotto').classList.contains('hidden')) updateChartsYear();
+      }, 250);
+    });
+
+    // ---------- Salvataggio Nuovo Rifornimento ----------
+    async function submitForm(e) {
+      e.preventDefault();
+      const btn = document.getElementById('submitBtn');
+      if (btn.disabled) return;
+
+      const dataVal = document.getElementById('data').value;
+      const kmVal = document.getElementById('km_totali').value;
+      const litriVal = document.getElementById('litri_carburante').value;
+      const prezzoVal = document.getElementById('prezzo_litro').value;
+
+      const km = parseNum(kmVal), litri = parseNum(litriVal), prezzo = parseNum(prezzoVal);
+      if (!dataVal || isNaN(km) || isNaN(litri) || isNaN(prezzo) || litri <= 0 || prezzo <= 0) {
+        showToast('Controlla i campi: valori mancanti o non validi', 'warn');
+        buzz(80);
+        return;
+      }
+
+      if (lastKm !== null && km <= lastKm && !kmWarned) {
+        kmWarned = true;
+        btn.textContent = 'Salva comunque';
+        btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+        btn.classList.add('bg-amber-500', 'hover:bg-amber-600');
+        showToast('Km non coerenti: tocca di nuovo per confermare', 'warn');
+        buzz(60);
+        return;
+      }
+
+      btn.innerHTML = '<span class="animate-pulse">Salvataggio...</span>';
+      btn.disabled = true;
+      btn.classList.remove('bg-amber-500', 'hover:bg-amber-600', 'bg-blue-600');
+      btn.classList.add('bg-blue-400');
+
+      const formData = { data: dataVal, km_totali: kmVal, litri_carburante: litriVal, prezzo_litro: prezzoVal };
+      if (extras.tipo) formData.tipo = currentTipo;
+      if (extras.distributore) formData.distributore = document.getElementById('distributore').value;
+      if (extras.note) formData.note = document.getElementById('note').value;
+
+      try {
+        await apiCall('append', { formData });
+        document.getElementById('km_totali').value = '';
+        document.getElementById('litri_carburante').value = '';
+        document.getElementById('distributore').value = '';
+        document.getElementById('note').value = '';
+        setTipo('Pieno');
+        document.getElementById('data').value = todayLocalISO();
+        kmWarned = false;
+        document.getElementById('kmWarning').classList.add('hidden');
+        document.getElementById('previewBox').classList.add('hidden');
+
+        buzz(40);
+        showToast('Rifornimento salvato ✓');
+        switchTab('cruscotto');
+        loadData(true);
+      } catch (error) {
+        buzz(120);
+        showToast('Errore salvataggio: ' + (error.message || 'riprova'), 'error');
+      } finally {
+        btn.textContent = 'Salva Dati';
+        btn.disabled = false;
+        btn.classList.remove('bg-blue-400', 'bg-amber-500');
+        btn.classList.add('bg-blue-600');
+      }
+    }
+
+    // ---------- Bottom Sheet (Configurazione API, Modifica, Elimina) ----------
+    let sheetRecord = null;
+    const CLOSE_ICON = '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+    const FIELD_CLASS = 'field block w-full rounded-xl border-slate-200 bg-slate-50 shadow-sm border px-4 py-3 font-bold focus:bg-white focus:border-blue-500 outline-none transition-colors';
+    const LABEL_CLASS = 'block text-sm font-bold text-slate-500 uppercase tracking-wider mb-1.5';
+
+    function esc(s) {
+      return String(s === undefined || s === null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    }
+    function numToInput(n) {
+      return (n === null || n === undefined || n === '') ? '' : String(n).replace('.', ',');
+    }
+    function showSheet(html) {
+      document.getElementById('sheetBody').innerHTML = html;
+      document.getElementById('sheet').classList.remove('hidden');
+    }
+    function closeSheet() {
+      document.getElementById('sheet').classList.add('hidden');
+      sheetRecord = null;
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+
+    function openConfigSheet() {
+      const cfg = getApiConfig();
+      showSheet(`
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-2xl font-extrabold text-slate-800">Connessione Server</h3>
+          <button onclick="closeSheet()" aria-label="Chiudi" class="p-2 -mr-2 text-slate-400 active:text-slate-600">${CLOSE_ICON}</button>
+        </div>
+        <p class="text-sm text-slate-500 mb-4">Salvati solo nella memoria locale di questo dispositivo.</p>
+        <div class="space-y-4">
+          <div>
+            <label for="cfg_url" class="${LABEL_CLASS}">URL Web App (/exec)</label>
+            <input type="url" id="cfg_url" value="${esc(cfg.url)}" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off" class="block w-full rounded-xl border-slate-200 bg-slate-50 shadow-sm border px-4 py-3 text-base font-semibold focus:bg-white focus:border-blue-500 outline-none">
+          </div>
+          <div>
+            <label for="cfg_token" class="${LABEL_CLASS}">Token Segreto API</label>
+            <input type="password" id="cfg_token" value="${esc(cfg.token)}" placeholder="Token impostato in code.gs" autocomplete="off" class="block w-full rounded-xl border-slate-200 bg-slate-50 shadow-sm border px-4 py-3 text-base font-semibold focus:bg-white focus:border-blue-500 outline-none">
+          </div>
+        </div>
+        <div class="flex gap-3 mt-5">
+          <button onclick="closeSheet()" class="flex-1 py-3.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-lg active:scale-95 transition-all">Chiudi</button>
+          <button onclick="saveConfigSheet()" class="flex-1 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-lg shadow-lg shadow-blue-500/30 active:scale-95 transition-all">Salva e Connetti</button>
+        </div>
+      `);
+    }
+
+    function saveConfigSheet() {
+      const url = document.getElementById('cfg_url').value.trim();
+      const token = document.getElementById('cfg_token').value.trim();
+      if (!url || !token) {
+        showToast('Inserisci URL e Token', 'warn');
+        return;
+      }
+      try {
+        localStorage.setItem(API_URL_KEY, url);
+        localStorage.setItem(API_TOKEN_KEY, token);
+      } catch (e) {}
+      closeSheet();
+      loadData(true);
+    }
+
+    async function fetchLastRecord(onOk) {
+      showSheet('<div class="py-12 text-center text-slate-500 font-semibold animate-pulse">Carico ultimo rifornimento…</div>');
+      try {
+        const rec = await apiCall('getLast');
+        if (!rec) {
+          closeSheet();
+          showToast('Nessun rifornimento trovato', 'warn');
+          return;
+        }
+        sheetRecord = rec;
+        onOk(rec);
+      } catch (err) {
+        closeSheet();
+        showToast('Errore: ' + (err.message || 'riprova'), 'error');
+      }
+    }
+
+    function openEdit() { fetchLastRecord(renderEditSheet); }
+    function openDelete() { fetchLastRecord(renderDeleteSheet); }
+
+    let edTipo = 'Pieno';
+    function setEdTipo(t) {
+      edTipo = t;
+      styleTipoButtons(document.getElementById('ed_tipoPieno'), document.getElementById('ed_tipoParz'), t);
+    }
+
+    function renderEditSheet(rec) {
+      showSheet(`
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-2xl font-extrabold text-slate-800">Modifica ultimo rifornimento</h3>
+          <button onclick="closeSheet()" aria-label="Chiudi" class="p-2 -mr-2 text-slate-400 active:text-slate-600">${CLOSE_ICON}</button>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div class="col-span-2">
+            <label for="ed_data" class="${LABEL_CLASS}">Data</label>
+            <input type="date" id="ed_data" value="${esc(rec.data)}" class="${FIELD_CLASS}">
+          </div>
+          <div class="col-span-2">
+            <label for="ed_km" class="${LABEL_CLASS}">Km Totali</label>
+            <input type="text" inputmode="numeric" pattern="[0-9]*" id="ed_km" value="${esc(numToInput(rec.km))}" autocomplete="off" class="${FIELD_CLASS}">
+          </div>
+          <div>
+            <label for="ed_litri" class="${LABEL_CLASS}">Litri</label>
+            <input type="text" inputmode="decimal" id="ed_litri" value="${esc(numToInput(rec.litri))}" autocomplete="off" class="${FIELD_CLASS}">
+          </div>
+          <div>
+            <label for="ed_prezzo" class="${LABEL_CLASS}">Prezzo/L (€)</label>
+            <input type="text" inputmode="decimal" id="ed_prezzo" value="${esc(numToInput(rec.prezzo))}" autocomplete="off" class="${FIELD_CLASS}">
+          </div>
+          ${extras.tipo ? `
+          <div class="col-span-2">
+            <span class="${LABEL_CLASS}">Tipo</span>
+            <div class="grid grid-cols-2 gap-2" role="group" aria-label="Tipo rifornimento">
+              <button type="button" id="ed_tipoPieno" onclick="setEdTipo('Pieno')" class="py-3.5 rounded-xl border font-bold text-lg transition-colors">Pieno</button>
+              <button type="button" id="ed_tipoParz" onclick="setEdTipo('Parziale')" class="py-3.5 rounded-xl border font-bold text-lg transition-colors">Parziale</button>
+            </div>
+          </div>` : ''}
+          ${extras.distributore ? `
+          <div class="col-span-2">
+            <label for="ed_dist" class="${LABEL_CLASS}">Distributore</label>
+            <input type="text" id="ed_dist" maxlength="80" value="${esc(rec.distributore || '')}" list="distList" autocomplete="off" class="${FIELD_CLASS}">
+          </div>` : ''}
+          ${extras.note ? `
+          <div class="col-span-2">
+            <label for="ed_note" class="${LABEL_CLASS}">Note</label>
+            <input type="text" id="ed_note" maxlength="300" value="${esc(rec.note || '')}" autocomplete="off" class="${FIELD_CLASS}">
+          </div>` : ''}
+        </div>
+        <div id="ed_warn" class="hidden mt-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-base font-semibold text-amber-800"></div>
+        <div class="flex gap-3 mt-5">
+          <button onclick="closeSheet()" class="flex-1 py-3.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-lg active:scale-95 transition-all">Annulla</button>
+          <button id="ed_save" onclick="saveEdit()" class="flex-1 py-3.5 rounded-xl bg-blue-600 text-white font-bold text-lg shadow-lg shadow-blue-500/30 active:scale-95 transition-all">Salva</button>
+        </div>
+      `);
+      document.getElementById('ed_km').addEventListener('input', checkEditKm);
+      checkEditKm();
+      if (extras.tipo) setEdTipo(rec.tipo === 'Parziale' ? 'Parziale' : 'Pieno');
+    }
+
+    function checkEditKm() {
+      const warn = document.getElementById('ed_warn');
+      if (!warn || !sheetRecord) return;
+      const km = parseNum(document.getElementById('ed_km').value);
+      const prev = sheetRecord.prevKm;
+      if (prev !== null && prev !== undefined && !isNaN(km) && km <= prev) {
+        warn.textContent = 'Attenzione: i km (' + km.toLocaleString('it-IT') + ') sono pari o inferiori al rifornimento precedente (' + Number(prev).toLocaleString('it-IT') + ').';
+        warn.classList.remove('hidden');
+      } else {
+        warn.classList.add('hidden');
+      }
+    }
+
+    async function saveEdit() {
+      if (!sheetRecord) return;
+      const data = document.getElementById('ed_data').value;
+      const kmV = document.getElementById('ed_km').value;
+      const litriV = document.getElementById('ed_litri').value;
+      const prezzoV = document.getElementById('ed_prezzo').value;
+
+      const km = parseNum(kmV), litri = parseNum(litriV), prezzo = parseNum(prezzoV);
+      if (!data || isNaN(km) || isNaN(litri) || isNaN(prezzo) || litri <= 0 || prezzo <= 0) {
+        showToast('Controlla i campi: valori mancanti o non validi', 'warn');
+        buzz(80);
+        return;
+      }
+
+      const expected = { row: sheetRecord.row, km: sheetRecord.km };
+      const btn = document.getElementById('ed_save');
+      btn.disabled = true;
+      btn.textContent = 'Salvataggio...';
+
+      const payload = { data, km_totali: kmV, litri_carburante: litriV, prezzo_litro: prezzoV };
+      if (extras.tipo) payload.tipo = edTipo;
+      if (extras.distributore) payload.distributore = document.getElementById('ed_dist').value;
+      if (extras.note) payload.note = document.getElementById('ed_note').value;
+
+      try {
+        await apiCall('updateLast', { formData: payload, expected });
+        closeSheet();
+        buzz(40);
+        showToast('Rifornimento aggiornato ✓');
+        loadData(true);
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Salva';
+        buzz(120);
+        showToast('Errore: ' + (err.message || 'riprova'), 'error');
+      }
+    }
+
+    function renderDeleteSheet(rec) {
+      const litri = Number(rec.litri);
+      const prezzo = Number(rec.prezzo);
+      showSheet(`
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-2xl font-extrabold text-slate-800">Eliminare l'ultimo rifornimento?</h3>
+          <button onclick="closeSheet()" aria-label="Chiudi" class="p-2 -mr-2 text-slate-400 active:text-slate-600">${CLOSE_ICON}</button>
+        </div>
+        <div class="rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 grid grid-cols-2 gap-3">
+          <div><span class="block text-[13px] font-bold text-slate-400 uppercase tracking-wider">Data</span><span class="text-xl font-bold text-slate-700">${esc(formatDateIT(rec.data))}</span></div>
+          <div><span class="block text-[13px] font-bold text-slate-400 uppercase tracking-wider">Km totali</span><span class="text-xl font-bold text-slate-700">${isNaN(Number(rec.km)) ? esc(rec.km) : Number(rec.km).toLocaleString('it-IT')}</span></div>
+          <div><span class="block text-[13px] font-bold text-slate-400 uppercase tracking-wider">Litri</span><span class="text-xl font-bold text-slate-700">${isNaN(litri) ? esc(rec.litri) : litri.toLocaleString('it-IT')}</span></div>
+          <div><span class="block text-[13px] font-bold text-slate-400 uppercase tracking-wider">Prezzo/L</span><span class="text-xl font-bold text-slate-700">${isNaN(prezzo) ? esc(rec.prezzo) : prezzo.toFixed(3).replace('.', ',') + ' €'}</span></div>
+        </div>
+        <p class="mt-3 text-base text-slate-500 font-medium">La riga viene svuotata nel foglio. Dall'app non si può annullare.</p>
+        <div class="flex gap-3 mt-5">
+          <button onclick="closeSheet()" class="flex-1 py-3.5 rounded-xl bg-slate-100 text-slate-700 font-bold text-lg active:scale-95 transition-all">Annulla</button>
+          <button id="del_confirm" onclick="confirmDelete()" class="flex-1 py-3.5 rounded-xl bg-red-600 text-white font-bold text-lg shadow-lg shadow-red-500/30 active:scale-95 transition-all">Elimina</button>
+        </div>
+      `);
+    }
+
+    async function confirmDelete() {
+      if (!sheetRecord) return;
+      const expected = { row: sheetRecord.row, km: sheetRecord.km };
+      const btn = document.getElementById('del_confirm');
+      btn.disabled = true;
+      btn.textContent = 'Elimino...';
+
+      try {
+        await apiCall('deleteLast', { expected });
+        closeSheet();
+        buzz(40);
+        showToast('Rifornimento eliminato');
+        loadData(true);
+      } catch (err) {
+        btn.disabled = false;
+        btn.textContent = 'Elimina';
+        buzz(120);
+        showToast('Errore: ' + (err.message || 'riprova'), 'error');
+      }
+    }
+
+    // ---------- Esportazione CSV ----------
+    function csvEscape(v) {
+      if (v === undefined || v === null) return '';
+      if (typeof v === 'number') return String(v).replace('.', ',');
+      let s = String(v);
+      if (/^[=+\-@]/.test(s) && s !== '-' && isNaN(parseFloat(s.replace(',', '.')))) s = "'" + s;
+      if (/[;"\r\n]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    }
+
+    function buildCsv() {
+      const keys = [];
+      globalHistoricalData.forEach(r => Object.keys(r).forEach(k => { if (k !== 'Anno' && !keys.includes(k)) keys.push(k); }));
+      const lines = [keys.map(csvEscape).join(';')];
+      globalHistoricalData.forEach(r => lines.push(keys.map(k => csvEscape(r[k])).join(';')));
+      return '\uFEFF' + lines.join('\r\n');
+    }
+
+    function downloadCsv(csv, name) {
+      try {
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = name;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+        showToast('File CSV pronto: controlla i download');
+      } catch (e) {
+        copyText(csv, 'Download non riuscito: CSV copiato negli appunti');
+      }
+    }
+
+    function exportCsv() {
+      if (!globalHistoricalData.length) { showToast('Nessun dato da esportare', 'warn'); return; }
+      const csv = buildCsv();
+      const name = 'rifornimenti_' + todayLocalISO() + '.csv';
+      try {
+        const file = new File([csv], name, { type: 'text/csv' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          navigator.share({ files: [file], title: name }).catch(err => {
+            if (err && err.name === 'AbortError') return;
+            downloadCsv(csv, name);
+          });
+          return;
+        }
+      } catch (e) {}
+      downloadCsv(csv, name);
+    }
+
+    function copyText(text, okMsg) {
+      function legacy() {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+          document.body.appendChild(ta); ta.select();
+          const ok = document.execCommand('copy');
+          ta.remove();
+          showToast(ok ? okMsg : 'Copia non riuscita', ok ? undefined : 'error');
+        } catch (e) { showToast('Copia non riuscita', 'error'); }
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => showToast(okMsg), legacy);
+      } else { legacy(); }
+    }
+
+    function copyCsv() {
+      if (!globalHistoricalData.length) { showToast('Nessun dato da copiare', 'warn'); return; }
+      copyText(buildCsv(), 'CSV copiato negli appunti');
+    }
+
+    loadData();
+  </script>
+</body>
+</html>
